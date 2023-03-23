@@ -41,7 +41,7 @@ jobs:
       - run:
           command: |
               URL="http://54.202.198.77:3000"
-              if curl -s --max-time 10 --head ${URL}
+              if curl -s --connect-timeout 5 --head ${URL}
               then
                 echo It worked
                 return 0
