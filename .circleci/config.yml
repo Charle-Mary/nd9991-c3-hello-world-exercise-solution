@@ -6,8 +6,8 @@ version: 2.1
 
 jobs:
   create_infrastructure:
-  docker:
-    - image: amazon/aws-cli
+    docker:
+      - image: amazon/aws-cli
     # executor: aws-cli/default
     steps:
       - checkout
