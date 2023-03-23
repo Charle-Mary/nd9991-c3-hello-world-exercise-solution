@@ -4,25 +4,38 @@ version: 2.1
 #   aws-cli: circleci/aws-cli@3.1.4
 
 jobs:
-  create_infrastructure:
+  # create_infrastructure:
+  #   docker:
+  #     - image: amazon/aws-cli
+  #   # executor: aws-cli/default
+  #   steps:
+  #     - checkout
+  #     # - aws-cli/setup
+  #     - run: 
+  #         command: |
+  #             aws cloudformation deploy \
+  #             --template-file template.yml \
+  #             --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:5} \
+  #             --region us-west-2
+  
+  configure_infrastructure:
     docker:
-      - image: amazon/aws-cli
-    # executor: aws-cli/default
+      - image: python:3.7-alpine3.11
     steps:
       - checkout
-      # - aws-cli/setup
-      - run: 
-          command: |
-              aws cloudformation deploy \
-              --template-file template.yml \
-              --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:5} \
-              --region us-west-2
-
+      - add_ssh_keys:
+          fingerprints: [89:f0:76:7a:9b:b1:e8:84:ba:62:36:0e:8e:e3:5c:4a]
+      - run:
+          command: | 
+              apk add --update ansible
+      - run:
+          command: | 
+              ansible-playbook main4.yml -i inventory 
 
 workflows:
   default_workflow:
     jobs:
-      - create_infrastructure
+      - configure_infrastructure
 
 
 
