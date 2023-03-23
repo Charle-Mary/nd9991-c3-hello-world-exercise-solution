@@ -28,7 +28,7 @@ jobs:
       - run:
           command: | 
               python3 -m pip install --user ansible
-              eval "$(ansible --version)"
+              echo "ansible --version"
       - run:
           command: | 
               ansible-playbook main4.yml -i inventory 
