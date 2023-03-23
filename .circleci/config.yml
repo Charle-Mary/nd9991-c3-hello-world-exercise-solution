@@ -3,26 +3,41 @@ version: 2.1
 # orbs:
 #   aws-cli: circleci/aws-cli@3.1.4
 
+commands:
+  destroy_environment:
+    steps:
+      - run:
+          when: on_fail
+          command: |
+              aws cloudformation delete-stack \
+              --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:5}
+
 jobs:
-  # create_infrastructure:
-  #   docker:
-  #     - image: amazon/aws-cli
-  #   # executor: aws-cli/default
-  #   steps:
-  #     - checkout
-  #     # - aws-cli/setup
-  #     - run: 
-  #         command: |
-  #             aws cloudformation deploy \
-  #             --template-file template.yml \
-  #             --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:5} \
-  #             --region us-west-2
+  create_infrastructure:
+    docker:
+      - image: amazon/aws-cli
+    # executor: aws-cli/default
+    steps:
+      - checkout
+      # - aws-cli/setup
+      - run: 
+          command: |
+              aws cloudformation deploy \
+              --template-file template.yml \
+              --stack-name myStack-${CIRCLE_WORKFLOW_ID:0:5} \
+              --region us-west-2
   
   configure_infrastructure:
     docker:
       - image: circleci/python
     steps:
       - checkout
+      - run: echo [ubuntu] >> inventory.txt
+      - run:
+          command: |
+              aws ec2 describe-instances \
+              --query 'Reservations[*].Instances[*].PublicIpAddress' \
+              --output text >> inventory.txt
       - add_ssh_keys:
           fingerprints: [89:f0:76:7a:9b:b1:e8:84:ba:62:36:0e:8e:e3:5c:4a]
       - run:
@@ -39,21 +54,15 @@ jobs:
     steps:
       - run: apk add --update curl
       - run:
-          command: |
-              URL="http://54.202.198.77:3000"
-              if curl -s --connect-timeout 15 --head ${URL}
-              then
-                echo It worked
-                return 0
-              else
-                echo It failed
-                return 1
-              fi
+          command: return 1
+      - destroy_environment
 
 workflows:
   default_workflow:
     jobs:
-      - configure_infrastructure
+      - create_infrastructure
+      - configure_infrastructure:
+          requires: [create_infrastructure]
       - smoke_test:
           requires: [configure_infrastructure]
 
