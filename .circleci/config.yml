@@ -27,7 +27,8 @@ jobs:
           fingerprints: [89:f0:76:7a:9b:b1:e8:84:ba:62:36:0e:8e:e3:5c:4a]
       - run:
           command: | 
-              apk add --update ansible
+              python3 -m pip install --user ansible
+              eval "$(ansible --version)"
       - run:
           command: | 
               ansible-playbook main4.yml -i inventory 
