@@ -40,7 +40,7 @@ jobs:
       - run: apk add --update curl
       - run:
           command: |
-              URL = "http://54.202.198.77:3000"
+              URL="http://54.202.198.77:3000"
               if curl -s --head ${URL}
               then
                 echo It worked
