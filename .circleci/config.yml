@@ -31,7 +31,7 @@ jobs:
               python3 -m pip show ansible
       - run:
           command: | 
-              ansible-playbook main4.yml -i inventory 
+              ansible-playbook main4.yml -i inventory.txt 
 
 workflows:
   default_workflow:
