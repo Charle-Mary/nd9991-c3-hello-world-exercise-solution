@@ -1,7 +1,7 @@
 version: 2.1
 
-# orbs:
-#   aws-cli: circleci/aws-cli@3.1.4
+orbs:
+  aws-cli: circleci/aws-cli@3.1.4
 
 commands:
   destroy_environment:
@@ -14,12 +14,12 @@ commands:
 
 jobs:
   create_infrastructure:
-    docker:
-      - image: amazon/aws-cli
-    # executor: aws-cli/default
+    # docker:
+    #   - image: amazon/aws-cli
+    executor: aws-cli/default
     steps:
       - checkout
-      # - aws-cli/setup
+      - aws-cli/setup
       - run: 
           command: |
               aws cloudformation deploy \
@@ -28,12 +28,12 @@ jobs:
               --region us-west-2
   
   configure_infrastructure:
-    docker:
-      - image: amazon/aws-cli
-    # executor: aws-cli/default
+    # docker:
+    #   - image: circleci/python
+    executor: aws-cli/default
     steps:
       - checkout
-      # - aws-cli/setup
+      - aws-cli/setup
       - run: echo [ubuntu] >> inventory.txt
       - run:
           command: |
@@ -49,6 +49,7 @@ jobs:
       - run:
           command: | 
               ansible-playbook main4.yml -i inventory.txt
+      - destroy_environment
 
   smoke_test:
     # docker:
@@ -60,15 +61,80 @@ jobs:
       - run:
           command: return 1
       - destroy_environment
+  
+
+  create_and_deploy_front_end:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run:
+          command: |
+              aws cloudformation deploy \
+              --template-file bucket.yml \
+              --stack-name stack-create-bucket-${CIRCLE_WORKFLOW_ID:0:7} \
+              --parameter-overrides MyBucketName="mybucket-${CIRCLE_WORKFLOW_ID:0:7}"
+      - run: aws s3 cp index.html s3://mybucket-${CIRCLE_WORKFLOW_ID:0:7} 
+  
+  get_last_deployment_id:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run: yum install -y tar gzip
+      - run: 
+          command: |
+              aws cloudformation \
+              list-exports --query "Exports[?Name==\`PipelineID\`].Value" \
+              --no-paginate --output text > ~/textfile.txt
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - textfile.txt
+
+  promote_to_production:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run:
+          command: |
+              aws cloudformation deploy \
+              --template-file cloudfront.yml \
+              --stack-name production-distro \
+              --parameter-overrides PipelineID="mybucket-${CIRCLE_WORKFLOW_ID:0:7}"
+
+  clean_up_old_frontend:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      - checkout
+      - run: yum install -y tar gzip
+      - attach_workspace:
+          at: ~/
+      - run:
+          command: |
+              export OldBucketID=$(cat ~/textfile.txt)
+              aws s3 rm s3://${OldBucketID} --recursive
+
 
 workflows:
-  default_workflow:
+  my_workflow:
     jobs:
-      - create_infrastructure
-      - configure_infrastructure:
-          requires: [create_infrastructure]
-      - smoke_test:
-          requires: [configure_infrastructure]
+      - create_and_deploy_front_end
+      - promote_to_production:
+          requires: [create_and_deploy_front_end]
+      - get_last_deployment_id
+      - clean_up_old_front_end:
+          requires: [get_last_deployment_id, promote_to_production]
+  # default_workflow:
+  #   jobs:
+  #     - create_infrastructure
+  #     - configure_infrastructure:
+  #         requires: [create_infrastructure]
+  #     - smoke_test:
+  #         requires: [configure_infrastructure]
+
 
 
 
